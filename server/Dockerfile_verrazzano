@@ -1,0 +1,36 @@
+FROM ghcr.io/oracle/oraclelinux:8-slim AS build_base
+
+LABEL maintainer = "Verrazzano developers <verrazzano_ww@oracle.com>"
+
+ENV KEYCLOAK_VERSION 15.0.2
+ENV JDBC_MYSQL_VERSION 8.0.26
+
+ENV LAUNCH_JBOSS_IN_BACKGROUND 1
+ENV PROXY_ADDRESS_FORWARDING false
+ENV JBOSS_HOME /opt/jboss/keycloak
+ENV LANG en_US.UTF-8
+
+USER root
+
+RUN microdnf update -y \
+    && microdnf install -y glibc-langpack-en gzip hostname java-11-openjdk-headless openssl tar which libxml2 \
+    && microdnf clean all; rm -rf /var/cache/yum \
+    && mkdir -p /opt/jboss
+
+COPY tools /opt/jboss/tools
+
+COPY keycloak-$KEYCLOAK_VERSION.tar.gz /opt/jboss/
+
+RUN /opt/jboss/tools/build-keycloak-verrazzano.sh
+
+COPY THIRD_PARTY_LICENSES.txt LICENSE.txt README.md SECURITY.md /licenses/
+COPY extra-notices /licenses/
+
+USER 1000
+
+EXPOSE 8080
+EXPOSE 8443
+
+ENTRYPOINT [ "/opt/jboss/tools/docker-entrypoint.sh" ]
+
+CMD ["-b", "0.0.0.0"]
